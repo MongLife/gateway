@@ -7,8 +7,10 @@ import com.monglife.discovery.app.common.auth.dto.etc.*;
 import com.monglife.discovery.app.common.auth.exception.NeedUpdateAppException;
 import com.monglife.discovery.app.common.auth.exception.SocialAccountMismatchException;
 import com.monglife.discovery.app.common.auth.exception.TokenExpiredException;
+import com.monglife.discovery.app.common.global.provider.AppleIdTokenProvider;
 import com.monglife.discovery.app.common.global.provider.GoogleIdTokenProvider;
 import com.monglife.discovery.app.common.global.provider.TokenProvider;
+import com.monglife.discovery.app.common.global.vo.AppleIdentityVo;
 import com.monglife.discovery.app.common.global.vo.GoogleIdentityVo;
 import com.monglife.discovery.domain.account.service.AccountService;
 import com.monglife.discovery.domain.account.service.LoginHistoryService;
@@ -39,6 +41,8 @@ public class AuthService {
     private final TokenProvider tokenProvider;
 
     private final GoogleIdTokenProvider googleIdTokenProvider;
+
+    private final AppleIdTokenProvider appleIdTokenProvider;
 
     /**
      * 회원 가입
@@ -200,6 +204,86 @@ public class AuthService {
                 : googleIdentityVo.getName();
 
         join(googleIdentityVo.getEmail(), resolvedName, googleIdentityVo.getSocialAccountId(), RoleCode.NORMAL.getRole());
+    }
+
+    /**
+     * Apple 방식 로그인
+     * v1 은 Apple 계정을 구글 계정과 별개로 둔다. 계정 특정은 오직 검증된 sub 로만 한다.
+     * Apple 은 이메일을 숨길 수 있어(privaterelay, 또는 아예 없음) 이메일을 계정 키로 쓸 수 없다.
+     * @param identityToken Apple ID 토큰
+     * @param socialAccountId Apple 계정 ID (토큰의 sub 와 대조용)
+     * @param deviceId 기기 ID
+     * @param appPackageName 앱 패키지 명
+     * @param deviceName 기기명
+     * @param buildVersion 앱 빌드 버전
+     * @return 로그인 정보 Dto
+     */
+    @Transactional
+    public LoginDto loginWithApple(String identityToken, String socialAccountId, String deviceId, String appPackageName, String deviceName, String buildVersion) {
+
+        // 신뢰 경계. DB 조회보다 먼저 검증해 쓰레기 요청에 DB 를 낭비하지 않는다
+        AppleIdentityVo appleIdentityVo = appleIdTokenProvider.verify(identityToken);
+
+        // body 의 socialAccountId 는 같은 ID 토큰의 sub 여야 한다
+        if (!appleIdentityVo.getSocialAccountId().equals(socialAccountId)) {
+            throw new SocialAccountMismatchException();
+        }
+
+        // 앱 버전 체크
+        if (appVersionService.getAppVersion(appPackageName, buildVersion).getMustUpdate()) {
+            throw new NeedUpdateAppException();
+        }
+
+        // 회원 조회 (검증된 sub 로). 없으면 NotExistsAccountException 이 그대로 나가고,
+        // 클라이언트는 그 에러 코드를 보고 회원가입으로 분기한다
+        AccountVo accountVo = accountService.getAccountBySocialAccountId(appleIdentityVo.getSocialAccountId());
+
+        return issueLogin(accountVo.getAccountId(), deviceId, appPackageName, deviceName, buildVersion);
+    }
+
+    /**
+     * Apple 방식 회원 가입
+     * @param identityToken Apple ID 토큰
+     * @param socialAccountId Apple 계정 ID (토큰의 sub 와 대조용)
+     * @param email 참고값. 저장하지 않는다 (아래 appleEmail 참고)
+     * @param name 이름. Apple 은 최초 인가 때만 내려주므로 이 값이 유일한 출처다
+     */
+    @Transactional
+    public void joinWithApple(String identityToken, String socialAccountId, String email, String name) {
+
+        AppleIdentityVo appleIdentityVo = appleIdTokenProvider.verify(identityToken);
+
+        if (!appleIdentityVo.getSocialAccountId().equals(socialAccountId)) {
+            throw new SocialAccountMismatchException();
+        }
+
+        String resolvedSocialAccountId = appleIdentityVo.getSocialAccountId();
+
+        String resolvedName = name == null || name.isBlank()
+                ? "apple(" + resolvedSocialAccountId + ")"
+                : name;
+
+        // join() 을 재사용하지 않는다. 그쪽은 createAccount 를 부르고 email 로 중복 검사한다
+        accountService.createSocialAccount(AccountVo.builder()
+                .email(appleEmail(resolvedSocialAccountId))
+                .name(resolvedName)
+                .socialAccountId(resolvedSocialAccountId)
+                .role(RoleCode.NORMAL.getRole())
+                .build());
+    }
+
+    /**
+     * Apple 계정의 이메일 자리 표시자
+     * 요청이나 토큰의 email 을 쓰지 않고 sub 에서 결정적으로 만든다. 조건부로 실제 이메일을 저장하면
+     * (1) 최초 가입과 재가입에서 값이 달라져 비결정적이고,
+     * (2) 그 이메일을 쓰는 구글 계정이 있으면 AlreadyExistsAccountException 이 나가 가입이 막힌다.
+     * 비회원 가입이 deviceId + "@anonymous.com" 을 쓰는 것과 같은 요령이고,
+     * .invalid 는 RFC 2606 예약 TLD 라 실제 주소와 충돌하지 않는다.
+     * @param socialAccountId Apple 계정 ID
+     * @return 이메일 자리 표시자
+     */
+    private static String appleEmail(String socialAccountId) {
+        return socialAccountId + "@apple.invalid";
     }
 
     /**

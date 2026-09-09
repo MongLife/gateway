@@ -35,6 +35,11 @@ dependencies {
     // google id token
     // firebase-admin 9.2.0 이 google-api-client-bom 2.2.0 을 import 하므로 같은 버전으로 고정한다
     implementation "com.google.api-client:google-api-client:2.2.0"
+
+    // apple id token
+    // Apple 은 검증 SDK 를 제공하지 않아 JWKS + JWT 검증을 직접 한다.
+    // spring-boot-dependencies 3.1.1 은 nimbus-jose-jwt 를 관리하지 않으므로 버전을 명시한다
+    implementation "com.nimbusds:nimbus-jose-jwt:9.37.3"
 }
 // JUnit 5 (저장소 최초 테스트. spring-boot 플러그인은 이 설정을 자동으로 넣어주지 않는다)
 tasks.named("test") {
