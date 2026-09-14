@@ -5,6 +5,7 @@ dependencies {
     // domain layer
     implementation project(":domains:monglife-discovery-domain-account")
     implementation project(":domains:monglife-discovery-domain-device")
+    implementation project(":domains:monglife-discovery-domain-feedback")
 
     // monglife-logging
     implementation "com.github.monglife.monglife-module-common:monglife-module-common-logging:${monglifeModuleCommonVersion}"
@@ -21,6 +22,8 @@ dependencies {
     implementation "org.springframework.boot:spring-boot-starter-web"
     developmentOnly "org.springframework.boot:spring-boot-devtools"
     implementation "org.springframework.boot:spring-boot-starter-validation"
+    // 관리자 이메일 인증 코드 · 오류 신고 답변 메일
+    implementation "org.springframework.boot:spring-boot-starter-mail"
     testImplementation "org.springframework.boot:spring-boot-starter-test"
 
     // lombok

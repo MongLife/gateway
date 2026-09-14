@@ -15,6 +15,7 @@ import com.monglife.discovery.app.common.global.vo.GoogleIdentityVo;
 import com.monglife.discovery.domain.account.service.AccountService;
 import com.monglife.discovery.domain.account.service.LoginHistoryService;
 import com.monglife.discovery.domain.account.service.TokenService;
+import com.monglife.discovery.domain.account.enums.AccountPlatform;
 import com.monglife.discovery.domain.account.vo.AccountVo;
 import com.monglife.discovery.domain.account.vo.LoginHistoryVo;
 import com.monglife.discovery.domain.account.vo.TokenVo;
@@ -53,12 +54,18 @@ public class AuthService {
      */
     @Transactional
     public void join(String email, String name, String socialAccountId, String role) {
+        // 구 경로(카카오 SDK). 플랫폼은 관리자 화면 표시용이다
+        join(email, name, socialAccountId, role, AccountPlatform.KAKAO);
+    }
+
+    private void join(String email, String name, String socialAccountId, String role, AccountPlatform platform) {
 
         AccountVo accountVo = AccountVo.builder()
                 .email(email)
                 .name(name)
                 .socialAccountId(socialAccountId)
                 .role(role)
+                .platform(platform.name())
                 .build();
 
         accountService.createAccount(accountVo);
@@ -89,6 +96,9 @@ public class AuthService {
         if (accountVo.getSocialAccountId() == null || accountVo.getSocialAccountId().isBlank()) {
             accountService.updateSocialAccountId(accountVo.getEmail(), socialAccountId);
         }
+
+        // 플랫폼 백필 (platform 컬럼 도입 전 계정)
+        accountService.fillPlatformIfEmpty(accountVo.getAccountId(), AccountPlatform.KAKAO.name());
 
         return issueLogin(accountVo.getAccountId(), deviceId, appPackageName, deviceName, buildVersion);
     }
@@ -181,6 +191,9 @@ public class AuthService {
             throw new SocialAccountMismatchException();
         }
 
+        // 플랫폼 백필 (platform 컬럼 도입 전 계정)
+        accountService.fillPlatformIfEmpty(accountVo.getAccountId(), AccountPlatform.GOOGLE.name());
+
         return issueLogin(accountVo.getAccountId(), deviceId, appPackageName, deviceName, buildVersion);
     }
 
@@ -203,7 +216,7 @@ public class AuthService {
                 ? name
                 : googleIdentityVo.getName();
 
-        join(googleIdentityVo.getEmail(), resolvedName, googleIdentityVo.getSocialAccountId(), RoleCode.NORMAL.getRole());
+        join(googleIdentityVo.getEmail(), resolvedName, googleIdentityVo.getSocialAccountId(), RoleCode.NORMAL.getRole(), AccountPlatform.GOOGLE);
     }
 
     /**
@@ -238,6 +251,9 @@ public class AuthService {
         // 클라이언트는 그 에러 코드를 보고 회원가입으로 분기한다
         AccountVo accountVo = accountService.getAccountBySocialAccountId(appleIdentityVo.getSocialAccountId());
 
+        // 플랫폼 백필 (platform 컬럼 도입 전 계정)
+        accountService.fillPlatformIfEmpty(accountVo.getAccountId(), AccountPlatform.APPLE.name());
+
         return issueLogin(accountVo.getAccountId(), deviceId, appPackageName, deviceName, buildVersion);
     }
 
@@ -269,6 +285,7 @@ public class AuthService {
                 .name(resolvedName)
                 .socialAccountId(resolvedSocialAccountId)
                 .role(RoleCode.NORMAL.getRole())
+                .platform(AccountPlatform.APPLE.name())
                 .build());
     }
 
