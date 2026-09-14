@@ -5,9 +5,16 @@ import com.monglife.discovery.domain.account.exception.AlreadyExistsAccountExcep
 import com.monglife.discovery.domain.account.exception.NotExistsAccountException;
 import com.monglife.discovery.domain.account.repository.AccountRepository;
 import com.monglife.discovery.domain.account.vo.AccountVo;
+import com.monglife.discovery.domain.account.vo.AccountSearchVo;
+import com.monglife.discovery.domain.account.vo.DateCountVo;
+import com.monglife.discovery.domain.account.vo.PageVo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +37,7 @@ public class AccountService {
                 .name(accountVo.getName())
                 .socialAccountId(accountVo.getSocialAccountId())
                 .role(accountVo.getRole())
+                .platform(accountVo.getPlatform())
                 .build();
 
         accountRepository.save(accountEntity);
@@ -57,6 +65,7 @@ public class AccountService {
                 .name(accountVo.getName())
                 .socialAccountId(accountVo.getSocialAccountId())
                 .role(accountVo.getRole())
+                .platform(accountVo.getPlatform())
                 .build();
 
         accountRepository.save(accountEntity);
@@ -135,5 +144,85 @@ public class AccountService {
                 .orElseThrow(NotExistsAccountException::new);
 
         accountEntity.updateSocialAccountId(socialAccountId);
+    }
+
+    // ----- 관리자 -----
+
+    static AccountVo toVo(AccountEntity e) {
+        return AccountVo.builder()
+                .accountId(e.getAccountId())
+                .email(e.getEmail())
+                .name(e.getName())
+                .socialAccountId(e.getSocialAccountId())
+                .role(e.getRole())
+                .platform(e.getPlatform())
+                .isDeleted(e.getIsDeleted())
+                .createdAt(e.getCreatedAt())
+                .updatedAt(e.getUpdatedAt())
+                .build();
+    }
+
+    /** 탈퇴 계정 포함 상세 */
+    @Transactional(readOnly = true)
+    public AccountVo getAccountIncludingDeleted(Long accountId) {
+        return toVo(accountRepository.findByAccountIdIncludingDeleted(accountId)
+                .orElseThrow(() -> new NotExistsAccountException(accountId)));
+    }
+
+    @Transactional(readOnly = true)
+    public PageVo<AccountVo> getAccounts(AccountSearchVo cond) {
+        List<AccountVo> items = accountRepository.findPage(cond).stream().map(AccountService::toVo).toList();
+        return PageVo.<AccountVo>builder()
+                .items(items)
+                .page(cond.getPage())
+                .size(cond.getSize())
+                .total(accountRepository.countPage(cond))
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<AccountVo> getAccounts(Collection<Long> accountIds) {
+        return accountRepository.findAllByAccountIds(accountIds).stream().map(AccountService::toVo).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Long> getAccountIdsByQuery(String query) {
+        return accountRepository.findAccountIdsByQuery(query);
+    }
+
+    /**
+     * 관리자 수정. null 인 필드는 건드리지 않는다.
+     */
+    @Transactional
+    public AccountVo updateAccount(Long accountId, String name, String role, Boolean isDeleted) {
+        AccountEntity e = accountRepository.findByAccountIdIncludingDeleted(accountId)
+                .orElseThrow(() -> new NotExistsAccountException(accountId));
+        if (name != null && !name.isBlank()) e.updateName(name);
+        if (role != null) e.updateRole(role);
+        if (isDeleted != null) e.updateDeleted(isDeleted);
+        return toVo(e);
+    }
+
+    /** 로그인 시 플랫폼이 비어 있으면 채운다 (기존 행 백필) */
+    @Transactional
+    public void fillPlatformIfEmpty(Long accountId, String platform) {
+        accountRepository.findByAccountId(accountId)
+                .filter(e -> e.getPlatform() == null)
+                .ifPresent(e -> e.updatePlatform(platform));
+    }
+
+    @Transactional(readOnly = true)
+    public long countJoinedSince(LocalDateTime since) {
+        return accountRepository.countJoinedSince(since);
+    }
+
+    @Transactional(readOnly = true)
+    public long countActive() {
+        return accountRepository.countActive();
+    }
+
+    @Transactional(readOnly = true)
+    public List<DateCountVo> getSignupStats(LocalDateTime from, LocalDateTime to) {
+        return accountRepository.countJoinedGroupByDate(from, to);
     }
 }

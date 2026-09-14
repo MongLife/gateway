@@ -9,6 +9,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.stream.StreamSupport;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -89,5 +92,51 @@ public class TokenService {
                 .createdAt(tokenEntity.getCreatedAt())
                 .expiration(tokenEntity.getExpiration())
                 .build();
+    }
+
+    static TokenVo toVo(TokenEntity e) {
+        return TokenVo.builder()
+                .refreshToken(e.getRefreshToken())
+                .accessToken(e.getAccessToken())
+                .deviceId(e.getDeviceId())
+                .accountId(e.getAccountId())
+                .appPackageName(e.getAppPackageName())
+                .buildVersion(e.getBuildVersion())
+                .createdAt(e.getCreatedAt())
+                .expiration(e.getExpiration())
+                .build();
+    }
+
+    // ----- 관리자 -----
+
+    /** 액세스 토큰으로 토큰 정보 조회 (앱 패키지·버전을 꺼낼 때) */
+    @Transactional(readOnly = true)
+    public TokenVo getToken(String accessToken) {
+        return toVo(tokenRepository.findByAccessToken(accessToken)
+                .orElseThrow(() -> new NotExistsTokenException(accessToken)));
+    }
+
+    /** 유효한 토큰 전체. Redis TTL 이 지난 것은 이미 없다 */
+    @Transactional(readOnly = true)
+    public List<TokenVo> getTokens() {
+        return StreamSupport.stream(tokenRepository.findAll().spliterator(), false)
+                .filter(e -> e.getRefreshToken() != null)
+                .map(TokenService::toVo)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<TokenVo> getTokensByAccountId(Long accountId) {
+        return tokenRepository.findByAccountId(accountId).stream().map(TokenService::toVo).toList();
+    }
+
+    @Transactional
+    public void deleteTokensByDeviceId(String deviceId) {
+        tokenRepository.findByDeviceId(deviceId).forEach(e -> tokenRepository.deleteById(e.getRefreshToken()));
+    }
+
+    @Transactional
+    public void deleteTokensByAccountId(Long accountId) {
+        tokenRepository.findByAccountId(accountId).forEach(e -> tokenRepository.deleteById(e.getRefreshToken()));
     }
 }
