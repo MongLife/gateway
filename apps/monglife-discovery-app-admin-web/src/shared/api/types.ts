@@ -9,6 +9,8 @@ export interface ResponseDto<T> {
 export interface PageResponseDto<T> extends ResponseDto<T> {
   page: number;
   size: number;
+  totalPage?: number;
+  isLastPage?: boolean;
 }
 
 export interface PageParams {

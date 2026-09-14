@@ -11,7 +11,7 @@ MongLife 디스커버리 **관리자 웹**. Vite + React 18 + TypeScript + React
 ```bash
 nvm use            # .nvmrc → Node 24
 npm install
-npm run dev        # http://localhost:5173  (기본: MSW 목 API)
+npm run dev        # http://localhost:5173  (PROFILE=local → localhost:8010 실서버)
 ```
 
 | 스크립트 | |
@@ -20,20 +20,31 @@ npm run dev        # http://localhost:5173  (기본: MSW 목 API)
 | `npm run build` | `tsc -b` + Vite 빌드 → `dist/` |
 | `npm run typecheck` / `npm run lint` / `npm run format` | |
 
-로그인은 **이메일 인증(6자리 코드)** 이다. 목에서는 `admin@monglife.cloud`(ADMIN 권한) 만 통과하고,
-발송된 코드는 브라우저 콘솔에 `[mock] email code …` 로 찍힌다. `000000` 은 항상 통과한다.
+로그인은 **이메일 인증(6자리 코드)** 이다. 실서버는 `monglife_account.role = 'ADMIN'` 인 계정 이메일로 코드를 보낸다
+(local 프로파일의 common-api 는 `env.mail.enabled=false` 라 코드를 서버 로그 `[mail disabled]` 에 찍는다).
+목(`VITE_ENABLE_MSW=true`)에서는 `admin@monglife.cloud` 만 통과하고 코드는 브라우저 콘솔에 `[mock] email code …`, `000000` 은 항상 통과.
 
-### 실서버(common-api) 에 붙이기
+### 프로파일 (local / dev / stg / prd)
 
-`.env.example` 을 `.env` 로 복사하고:
+접속 주소는 퍼블릭 저장소에 두지 않는다. 프로파일 파일은 **configs 서브모듈**의
+`properties/apps/monglife-discovery-app-admin-web/<PROFILE>.env` 에 있고, `vite.config.ts` 가
+`PROFILE` 환경변수로 골라 읽는다(규칙·키 설명은 그쪽 `README.md`).
 
-```
-VITE_ENABLE_MSW=false
-VITE_API_BASE_URL=/api      # vite.config.ts 의 proxy 가 /api → localhost:8010 으로 넘긴다
-```
+| 명령 | PROFILE | API |
+|---|---|---|
+| `npm run dev` | local | `/api` → 개발 서버 프록시 → `localhost:8010` (게이트웨이 `localhost:8000`) |
+| `npm run dev:dev` | dev | 위와 같음 |
+| `npm run build:stg` | stg | `http://100.0.0.10:8010/api` (절대 주소) |
+| `npm run build:prd` | prd | `http://100.0.0.20:8010/api` (절대 주소) |
 
-`/admin/**` 엔드포인트가 아직 백엔드에 없으므로 지금은 `/admin/notification/mongs` 만 실제로 동작한다.
-비밀값은 `.env` 에도 두지 않는다 — 저장소가 퍼블릭이다.
+- **local / dev 는 CORS 가 없다.** 브라우저는 같은 출처 `/api` 만 부르고, Vite 프록시가
+  `/api/character`·`/api/user` 는 게이트웨이로, 나머지는 common-api 로 넘긴다.
+- stg / prd 는 다른 출처라 common-api 의 `env.admin.allowed-origins` 에 관리자 웹 출처가 있어야 한다.
+  `admin.monglife.cloud` 처럼 인그레스 뒤에서 서비스할 땐 `VITE_API_BASE_URL=/api` 로 두면
+  인그레스가 같은 호스트 `/api/` 를 common-api 로 넘겨 CORS 가 없다(`configs/deploy/product/edge`).
+- `--mode` 를 쓰지 않는다. Vite 가 모드 이름 `local` 을 금지한다.
+- 서브모듈이 비어 있으면 기본값(`/api`, MSW 켜짐)으로 뜬다. 목 모드로 돌리려면 프로파일의
+  `VITE_ENABLE_MSW=true`.
 
 ## 구조
 
@@ -75,10 +86,10 @@ src/
 | `/notifications` | 4. 알림 가능 기기 조회·푸시 전송 |
 | `/error-reports`, `/error-reports/:id` | 사용자 오류 신고 목록·상세·답변(이메일) |
 
-## 목 API 계약
+## API 계약
 
-핸들러가 구현한 경로. 백엔드에 `/admin/**` 을 만들 때 이 계약을 기준으로 한다.
-응답은 전부 `ResponseDto { code, message, result }`, 목록은 `PageResponseDto` + `X-Total-Count` 헤더.
+common-api 가 구현한 경로이자 MSW 핸들러의 계약이다 (`apps/monglife-discovery-app-common-api` 의 `admin/`, `adminauth/`, `feedback/`).
+응답은 전부 `ResponseDto { code, message, result }`, 목록은 `PageResponseDto { page, size, totalPage, isLastPage }` + `X-Total-Count` 헤더.
 목록은 `sort=field,asc|desc`(Spring Pageable 스타일) 와 아래 필터 파라미터를 받는다.
 
 ```
@@ -100,7 +111,8 @@ POST   /admin/notification/mongs          { accountId, title, body }   ← 실�
 GET    /admin/error-reports?page&size&query&status&deviceName&appPackageName&buildVersion&sort(reportId|createdAt)
 GET    /admin/error-reports/:id
 GET    /admin/meta/filters                { deviceNames[], appPackageNames[], buildVersions[] }  필터 셀렉트 옵션
-POST   /admin/error-reports/:id/replies   { content }  → 신고자 이메일로 발송
+POST   /admin/error-reports/:id/replies   { content }  → 신고자 이메일로 발송, 응답 { content, sentTo, createdAt } (답변 1회, 재답변은 덮어씀)
+POST   /feedback                          { deviceName, title, content }  앱이 부른다 (패키지·버전은 토큰에서)
 GET    /admin/stats/users                 { todayJoined, weekJoined, totalAccounts, inactiveAccounts(30일 미로그인), activeSessions }
 GET    /admin/stats/logins?days           GET /admin/stats/signups?days
 POST   /public/admin/auth/email/code      { email } → { expiresIn, resendAfter }   403 NOT_ADMIN_ACCOUNT · 429 재발송 제한
@@ -110,14 +122,8 @@ POST   /public/auth/logout
 
 ## 다음 단계 (이 모듈 밖)
 
-- **백엔드 엔티티에 없는 필드를 화면이 쓴다.** 관리자 API 를 만들 때 같이 추가해야 한다:
-  `Account.platform`(google/apple/kakao — 지금은 `socialAccountId` 접두사로 추정),
-  `Device.createdAt`, 기기 응답의 `accountEmail/accountName`(계정 조인), **오류 신고 도메인 전체**(테이블·답변 메일 발송), `AppVersion.createdAt/updatedAt`(두 엔티티가 `BaseTimeEntity` 를 상속하지 않음),
-  `stats.inactiveAccounts`(로그인 이력 기준 30일 미로그인 집계).
-
-- **관리자 이메일 인증 백엔드.** 코드 발송(메일)·검증 엔드포인트와 ADMIN 권한 화이트리스트, 재발송 제한. 토큰 재발급(`/public/auth/reissue`)도 TODO.
-- **common-api 에 `/admin/**` 컨트롤러.** `SecurityConfig` 가 이미 `/admin/**` → `ROLE ADMIN` 이다.
-  목록 조회용 QueryDSL 페이징이 `domain-account` / `domain-device` 에 없다.
-- **CORS 또는 동일 출처.** common-api 에 CORS 설정이 없다. product `edge` nginx 에서 같은 호스트로 프록시하면 CORS 가 필요 없다.
-- **정적 호스팅.** `configs/deploy/product/edge` nginx 에 admin 호스트(또는 `/admin/` 서브패스) + `try_files … /index.html` SPA 폴백 + 인증서.
-- **Node CI.** `.github/actions/ci/build-test` 는 Gradle 전용이라 별도 워크플로가 필요하다.
+- **토큰 재발급.** 관리자 웹은 액세스 토큰 만료 시 `/public/auth/reissue` 를 부르지 않고 로그인으로 보낸다 (TODO).
+- ~~CORS 또는 동일 출처~~ → common-api `SecurityConfig` 의 CORS(`env.admin.allowed-origins`) + local/dev 프록시로 정리.
+- ~~정적 호스팅~~ → `configs/deploy/product/edge` 의 `monglife-admin` 컨테이너 + 인그레스 `admin.monglife.cloud` 블록.
+  `build:prd` 산출물(`dist/`)을 서버 `~/edge/build/monglife-admin/dist` 로 보내고 `./service.sh up`.
+- **Node CI/CD.** `.github/actions/ci/build-test` 는 Gradle 전용이라 별도 워크플로(`cd-admin`)가 필요하다. 아직 없다 — 위 배포는 수동.

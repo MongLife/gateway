@@ -15,7 +15,8 @@ export function paged<T>(items: T[], url: URL) {
   const page = Math.max(0, Number(url.searchParams.get('page') ?? 0));
   const size = Math.min(100, Math.max(1, Number(url.searchParams.get('size') ?? 20)));
   const slice = items.slice(page * size, page * size + size);
-  const body: PageResponseDto<T[]> = { code: 'DISCOVERY_ADMIN_OK', message: 'OK', result: slice, page, size };
+  const totalPage = Math.ceil(items.length / size);
+  const body: PageResponseDto<T[]> = { code: 'DISCOVERY_ADMIN_OK', message: 'OK', result: slice, page, size, totalPage, isLastPage: page + 1 >= totalPage };
   return HttpResponse.json(body as PageResponseDto<unknown[]>, { headers: { 'X-Total-Count': String(items.length) } });
 }
 

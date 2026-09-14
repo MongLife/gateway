@@ -1,8 +1,8 @@
 /** 사용자 오류 신고. 백엔드에 아직 없는 도메인 — 목 계약 */
 export type ErrorReportStatus = 'OPEN' | 'ANSWERED';
 
+/** 관리자 답변. 1회, 재답변은 덮어쓴다 */
 export interface ErrorReportReply {
-  replyId: number;
   content: string;
   /** 답변 이메일 발송 대상 */
   sentTo: string;
@@ -22,9 +22,7 @@ export interface ErrorReport {
   content: string;
   status: ErrorReportStatus;
   createdAt: string;
-  replies: ErrorReportReply[];
+  reply?: ErrorReportReply | null;
 }
 
-export interface ErrorReportSummary extends Omit<ErrorReport, 'replies' | 'content'> {
-  replyCount: number;
-}
+export type ErrorReportSummary = Omit<ErrorReport, 'content'>;

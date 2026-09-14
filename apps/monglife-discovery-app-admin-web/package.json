@@ -4,8 +4,11 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "PROFILE=local vite",
+    "dev:dev": "PROFILE=dev vite",
     "build": "tsc -b && vite build",
+    "build:stg": "PROFILE=stg npm run build",
+    "build:prd": "PROFILE=prd npm run build",
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "lint": "eslint .",

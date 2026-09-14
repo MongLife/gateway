@@ -46,15 +46,12 @@ export const errorReports: ErrorReport[] = Array.from({ length: 23 }, (_, i): Er
     content: BODIES[ti],
     status: answered ? 'ANSWERED' : 'OPEN',
     createdAt: iso(created),
-    replies: answered
-      ? [
-          {
-            replyId: id * 10 + 1,
-            content: '안녕하세요, MongLife 입니다.\n\n불편을 드려 죄송합니다. 해당 증상은 다음 버전(1.3.1)에서 수정될 예정입니다. 업데이트 후에도 같은 문제가 있으면 다시 알려주세요.\n\n감사합니다.',
-            sentTo: a.email,
-            createdAt: iso(created + Math.floor(rand() * 2 * DAY) + 3_600_000),
-          },
-        ]
-      : [],
+    reply: answered
+      ? {
+          content: '안녕하세요, MongLife 입니다.\n\n불편을 드려 죄송합니다. 해당 증상은 다음 버전(1.3.1)에서 수정될 예정입니다. 업데이트 후에도 같은 문제가 있으면 다시 알려주세요.\n\n감사합니다.',
+          sentTo: a.email,
+          createdAt: iso(created + Math.floor(rand() * 2 * DAY) + 3_600_000),
+        }
+      : null,
   };
 }).sort((a, b) => b.createdAt.localeCompare(a.createdAt));

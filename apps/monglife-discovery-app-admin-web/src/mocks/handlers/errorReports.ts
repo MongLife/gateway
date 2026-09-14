@@ -24,9 +24,9 @@ export const errorReportHandlers = [
           (!needle || includes(r.title, needle) || includes(r.email, needle) || includes(r.name, needle)),
       )
       .map((r) => {
-        const { replies, ...rest } = r;
-        delete (rest as Partial<typeof r>).content;
-        return { ...rest, replyCount: replies.length };
+        const rest: Partial<typeof r> = { ...r };
+        delete rest.content;
+        return rest as ErrorReportSummary;
       });
     return paged(sorted(items, url, { reportId: (r) => r.reportId, createdAt: (r) => r.createdAt }, 'createdAt,desc'), url);
   }),
@@ -42,8 +42,8 @@ export const errorReportHandlers = [
     const r = errorReports.find((x) => x.reportId === Number(params.id));
     if (!r) return fail(404, 'NOT_EXISTS_ERROR_REPORT', '신고가 없습니다.');
     const { content } = (await request.json()) as { content: string };
-    const reply = { replyId: Date.now(), content, sentTo: r.email, createdAt: new Date().toISOString() };
-    r.replies.push(reply);
+    const reply = { content, sentTo: r.email, createdAt: new Date().toISOString() };
+    r.reply = reply;
     r.status = 'ANSWERED';
     console.info('[mock] error-report reply mailed', { to: r.email, content });
     return ok(reply, '답변을 발송했습니다.');

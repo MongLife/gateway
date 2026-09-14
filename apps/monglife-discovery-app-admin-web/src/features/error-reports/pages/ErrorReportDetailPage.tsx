@@ -51,27 +51,23 @@ export function ErrorReportDetailPage() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>답변 {r.replies.length > 0 && `(${r.replies.length})`}</CardTitle></CardHeader>
-            {r.replies.length === 0 ? (
+            <CardHeader><CardTitle>답변</CardTitle></CardHeader>
+            {!r.reply ? (
               <CardBody><p className="text-sm text-muted-foreground">아직 답변이 없습니다.</p></CardBody>
             ) : (
-              <ul className="divide-y">
-                {r.replies.map((rep) => (
-                  <li key={rep.replyId} className="px-5 py-4">
-                    <div className="mb-1.5 flex items-center gap-2 text-xs text-muted-foreground">
-                      <Mail className="size-3.5" /> {rep.sentTo} · {formatDateTime(rep.createdAt)}
-                    </div>
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{rep.content}</p>
-                  </li>
-                ))}
-              </ul>
+              <CardBody>
+                <div className="mb-1.5 flex items-center gap-2 text-xs text-muted-foreground">
+                  <Mail className="size-3.5" /> {r.reply.sentTo} · {formatDateTime(r.reply.createdAt)}
+                </div>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">{r.reply.content}</p>
+              </CardBody>
             )}
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>답변 작성</CardTitle>
-              <span className="text-xs text-muted-foreground">{r.email} 로 이메일 발송</span>
+              <CardTitle>{r.reply ? '재답변' : '답변 작성'}</CardTitle>
+              <span className="text-xs text-muted-foreground">{r.email} 로 이메일 발송{r.reply && ' · 기존 답변을 덮어씁니다'}</span>
             </CardHeader>
             <CardBody>
               <form onSubmit={form.handleSubmit((v) => { setSent(null); setConfirm(v.content); })} className="space-y-3">

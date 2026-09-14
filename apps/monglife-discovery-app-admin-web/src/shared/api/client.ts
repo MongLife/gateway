@@ -73,9 +73,11 @@ async function requestPage<T>(path: string, query?: Query): Promise<Page<T>> {
     if (window.location.pathname !== '/login') window.location.assign('/login');
     throw new ApiError(401, 'UNAUTHORIZED', '세션이 만료되었습니다.');
   }
-  const json = (await res.json()) as PageResponseDto<T[]> & { total?: number };
+  const json = (await res.json()) as PageResponseDto<T[]>;
   if (!res.ok) throw new ApiError(res.status, json.code, json.message);
-  const total = Number(res.headers.get('X-Total-Count') ?? json.total ?? json.result.length);
+  // 백엔드는 X-Total-Count 헤더에 정확한 건수를 준다. 없으면 totalPage 로 근사한다.
+  const header = res.headers.get('X-Total-Count');
+  const total = header !== null ? Number(header) : (json.totalPage ?? 0) * json.size;
   return { items: json.result, page: json.page, size: json.size, total };
 }
 
