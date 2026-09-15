@@ -7,9 +7,11 @@ import { Logo } from '@/shared/components/Logo';
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  /** 모바일이면 접힘 고정. 펼치기 버튼 대신 로고를 보여준다 */
+  mobile?: boolean;
 }
 
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, mobile }: SidebarProps) {
   return (
     <aside
       className={cn(
@@ -24,15 +26,19 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <span className="min-w-0 flex-1 truncate text-sm font-semibold text-white">MongLife Admin</span>
           </>
         )}
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-label={collapsed ? '사이드바 펼치기' : '사이드바 접기'}
-          title={collapsed ? '사이드바 펼치기' : '사이드바 접기'}
-          className="rounded-md p-1.5 hover:bg-sidebar-active hover:text-white"
-        >
-          {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
-        </button>
+        {mobile ? (
+          <Logo className="size-8" />
+        ) : (
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-label={collapsed ? '사이드바 펼치기' : '사이드바 접기'}
+            title={collapsed ? '사이드바 펼치기' : '사이드바 접기'}
+            className="rounded-md p-1.5 hover:bg-sidebar-active hover:text-white"
+          >
+            {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+          </button>
+        )}
       </div>
 
       <nav className={cn('flex-1 space-y-5 overflow-y-auto py-3', collapsed ? 'px-2' : 'px-3')}>
