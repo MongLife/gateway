@@ -3,11 +3,16 @@ package com.monglife.discovery.domain.account.repository;
 import com.monglife.discovery.domain.account.entity.TokenEntity;
 import org.springframework.data.repository.CrudRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface TokenRepository extends CrudRepository<TokenEntity, String> {
 
     Optional<TokenEntity> findByDeviceIdAndAccountId(String deviceId, Long accountId);
 
-    Optional<TokenEntity>findByAccessToken(String accessToken);
+    Optional<TokenEntity> findByAccessToken(String accessToken);
+
+    List<TokenEntity> findByDeviceId(String deviceId);
+
+    List<TokenEntity> findByAccountId(Long accountId);
 }

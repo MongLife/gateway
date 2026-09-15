@@ -23,7 +23,10 @@ import java.util.Properties;
 @Configuration("accountDataSourceConfig")
 @EnableTransactionManagement
 @EnableJpaRepositories(
-        basePackages = "com.monglife.discovery.domain.account.repository",
+        // repositoryImpl 도 넣는다. Spring Data 는 커스텀 구현(*Impl) 을 이 base package 들에서 클래스패스
+        // 스캔으로 찾는다. 빼면 @Repository 빈 이름 폴백에 기대게 되는데 빈 등록 순서에 따라 못 찾고,
+        // 그때 findByXxx 는 조용히 파생 쿼리로 대체되어(isDeleted 필터 누락) 나머지는 기동 실패로 이어진다.
+        basePackages = {"com.monglife.discovery.domain.account.repository", "com.monglife.discovery.domain.account.repositoryImpl"},
         entityManagerFactoryRef = "accountEntityManager",
         transactionManagerRef = "accountTransactionManager"
 )

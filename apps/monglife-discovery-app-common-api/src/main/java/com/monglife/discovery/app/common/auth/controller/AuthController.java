@@ -173,6 +173,55 @@ public class AuthController {
     }
 
     /**
+     * Apple 방식 회원 가입
+     * @param appleJoinRequestDto 회원 가입 정보 Dto
+     * @return 성공 응답
+     */
+    @EntryLoggingPoint
+    @PostMapping("/join/apple")
+    public ResponseEntity<ResponseDto<?>> joinWithApple(@Valid @RequestBody AppleJoinRequestDto appleJoinRequestDto) {
+
+        String identityToken = appleJoinRequestDto.getIdentityToken();
+        String socialAccountId = appleJoinRequestDto.getSocialAccountId();
+        String email = appleJoinRequestDto.getEmail();
+        String name = appleJoinRequestDto.getName();
+
+        authService.joinWithApple(identityToken, socialAccountId, email, name);
+
+        return ResponseEntity.ok().body(AuthResponse.DISCOVERY_APP_AUTH_JOIN.toResponseDto());
+    }
+
+    /**
+     * Apple 방식 로그인
+     * @param appleLoginRequestDto 로그인 정보 Dto
+     * @return 토큰 정보 Dto
+     */
+    @EntryLoggingPoint
+    @PostMapping("/login/apple")
+    public ResponseEntity<ResponseDto<LoginResponseDto>> loginWithApple(@Valid @RequestBody AppleLoginRequestDto appleLoginRequestDto) {
+
+        String identityToken = appleLoginRequestDto.getIdentityToken();
+        String socialAccountId = appleLoginRequestDto.getSocialAccountId();
+        String deviceId = appleLoginRequestDto.getDeviceId();
+        String appPackageName = appleLoginRequestDto.getAppPackageName();
+        String deviceName = appleLoginRequestDto.getDeviceName();
+        String buildVersion = appleLoginRequestDto.getBuildVersion();
+
+        LoginDto loginDto = authService.loginWithApple(identityToken, socialAccountId, deviceId, appPackageName, deviceName, buildVersion);
+
+        // 기기 연결
+        userDeviceService.connectAndroidDevice(loginDto.getAccountId(), deviceId);
+
+        LoginResponseDto loginResponseDto = LoginResponseDto.builder()
+                .accountId(loginDto.getAccountId())
+                .accessToken(loginDto.getAccessToken())
+                .refreshToken(loginDto.getRefreshToken())
+                .build();
+
+        return ResponseEntity.ok().body(AuthResponse.DISCOVERY_APP_AUTH_LOGIN.toResponseDto(loginResponseDto));
+    }
+
+    /**
      * 로그아웃
      * @param logoutRequestDto 로그 아웃 정보 Dto
      * @return 성공 응답

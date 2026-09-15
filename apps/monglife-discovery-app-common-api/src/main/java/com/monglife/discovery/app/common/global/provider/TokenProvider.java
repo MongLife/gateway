@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Date;
 import java.util.Optional;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -47,6 +48,7 @@ public class TokenProvider {
         claims.put("deviceId", deviceId);
         claims.put("appPackageName", appPackageName);
         claims.put("buildVersion", buildVersion);
+        claims.setId(UUID.randomUUID().toString());
 
         return JwtTokenUtil.generateToken(JWT_KEY, claims, ACCESS_TOKEN_EXPIRED);
     }
@@ -54,6 +56,9 @@ public class TokenProvider {
     public String generateRefreshToken() {
 
         Claims claims = Jwts.claims();
+        // iat/exp 만 있으면 같은 초에 발급된 토큰이 전부 같은 문자열이 된다.
+        // 리프레시 토큰은 Redis @Id 라 다른 사용자의 세션을 덮어썼다 — jti 로 유일하게 만든다.
+        claims.setId(UUID.randomUUID().toString());
 
         return JwtTokenUtil.generateToken(JWT_KEY, claims, REFRESH_TOKEN_EXPIRED);
     }

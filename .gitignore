@@ -47,3 +47,10 @@ out/
 logs/
 ### macOS ###
 .DS_Store
+
+### admin-web (Vite) ###
+apps/monglife-discovery-app-admin-web/node_modules/
+apps/monglife-discovery-app-admin-web/dist/
+apps/monglife-discovery-app-admin-web/.env
+apps/monglife-discovery-app-admin-web/.env.*.local
+apps/monglife-discovery-app-admin-web/*.tsbuildinfo
