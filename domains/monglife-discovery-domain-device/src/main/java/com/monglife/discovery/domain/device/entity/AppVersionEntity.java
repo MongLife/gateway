@@ -35,4 +35,8 @@ public class AppVersionEntity extends BaseTimeEntity {
         this.buildVersion = buildVersion;
         this.mustUpdate = mustUpdate;
     }
+
+    public void updateMustUpdate(Boolean mustUpdate) {
+        this.mustUpdate = mustUpdate;
+    }
 }

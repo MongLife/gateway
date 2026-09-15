@@ -3,6 +3,7 @@ package com.monglife.discovery.app.common.auth.service;
 import com.monglife.discovery.app.common.auth.dto.etc.LoginDto;
 import com.monglife.discovery.app.common.auth.exception.NeedUpdateAppException;
 import com.monglife.discovery.app.common.auth.exception.SocialAccountMismatchException;
+import com.monglife.discovery.app.common.global.provider.AppleIdTokenProvider;
 import com.monglife.discovery.app.common.global.provider.GoogleIdTokenProvider;
 import com.monglife.discovery.app.common.global.provider.TokenProvider;
 import com.monglife.discovery.app.common.global.vo.GoogleIdentityVo;
@@ -56,6 +57,7 @@ class AuthServiceCredentialTest {
     @Mock private LoginHistoryService loginHistoryService;
     @Mock private TokenProvider tokenProvider;
     @Mock private GoogleIdTokenProvider googleIdTokenProvider;
+    @Mock private AppleIdTokenProvider appleIdTokenProvider;
 
     @InjectMocks private AuthService authService;
 
@@ -112,6 +114,9 @@ class AuthServiceCredentialTest {
 
         verify(tokenService).deleteToken(ACCOUNT_ID, DEVICE_ID);
         verify(loginHistoryService, times(1)).patchLoginHistory(any());
+
+        // credential 경로는 apple 검증기를 타지 않는다
+        verify(appleIdTokenProvider, never()).verify(anyString());
     }
 
     @Test
